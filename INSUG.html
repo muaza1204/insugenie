@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InsuGenie</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        /* Custom styles or overrides can go here */
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Reverted to previous background gradient for the body */
+            background: linear-gradient(135deg, #f0f8ff, #d1e9ff);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem; /* Add some padding */
+        }
+
+         /* Container styles - adjusted for centering and max width */
+         .container {
+             background-color: rgba(255, 255, 255, 0.9); /* Slightly more opaque white */
+             border-radius: 8px;
+             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+             max-width: 95%;
+             width: 800px;
+             margin: auto; /* Center the container */
+             min-height: calc(100vh - 2rem); /* Adjust based on body padding */
+             display: flex;
+             flex-direction: column;
+             overflow: hidden; /* Hide overflow */
+         }
+
+        /* Ensure the content area scrolls if content overflows */
+        .container-scroll {
+            flex-grow: 1; /* Allow content to take available space */
+            overflow-y: auto;
+            padding: 2rem; /* Add padding to the scrollable content */
+        }
+         /* Hide scrollbar for a cleaner look */
+         .container-scroll::-webkit-scrollbar {
+             display: none;
+         }
+         .container-scroll {
+             -ms-overflow-style: none;  /* IE and Edge */
+             scrollbar-width: none;  /* Firefox */
+         }
+
+         /* Style for the diet table */
+         .diet-table {
+             width: 100%;
+             border-collapse: collapse;
+             margin-top: 1rem;
+         }
+
+         .diet-table th, .diet-table td {
+             border: 1px solid #e2e8f0; /* Tailwind gray-200 */
+             padding: 0.75rem; /* Tailwind p-3 */
+             text-align: left;
+         }
+
+         .diet-table th {
+             background-color: #f1f5f9; /* Tailwind gray-100 */
+             font-weight: 600; /* Tailwind font-semibold */
+             color: #334155; /* Tailwind slate-700 */
+         }
+
+         .diet-table tbody tr:nth-child(even) {
+             background-color: #f8fafc; /* Tailwind gray-50 */
+         }
+
+         .diet-table td strong {
+             color: #0284c7; /* Tailwind sky-600 */
+         }
+
+         /* Report specific styles for PDF generation */
+         .report-container-pdf {
+             padding: 2rem;
+             font-family: 'Inter', sans-serif;
+             color: #333;
+         }
+         .report-container-pdf h4 {
+             color: #0284c7; /* Tailwind sky-600 */
+             border-bottom: 1px solid #e2e8f0;
+             padding-bottom: 0.5rem;
+             margin-top: 1.5rem;
+             margin-bottom: 0.75rem;
+             font-size: 1.25rem; /* Tailwind text-xl */
+             font-weight: 600; /* Tailwind font-semibold */
+         }
+         .report-container-pdf h4:first-child {
+             margin-top: 0;
+         }
+         .report-container-pdf p {
+             margin: 0.5rem 0;
+             font-size: 1rem;
+         }
+         .report-container-pdf ul {
+             margin-top: 1rem;
+             padding-left: 1.5rem;
+             font-size: 1rem;
+             line-height: 1.6;
+         }
+         .report-container-pdf ul li {
+             margin-bottom: 0.5rem;
+         }
+         .report-container-pdf ul li strong {
+             color: #1e293b; /* Tailwind slate-800 */
+         }
+          .report-container-pdf .report-header-pdf {
+              text-align: center;
+              margin-bottom: 2rem;
+              padding-bottom: 1rem;
+              border-bottom: 2px solid #0284c7;
+              display: flex; /* Use flexbox for logo and text alignment */
+              align-items: center; /* Vertically center items */
+              justify-content: center; /* Center content horizontally */
+          }
+           .report-container-pdf .report-header-pdf .logo-placeholder-pdf {
+               font-size: 2.5rem;
+               color: #0284c7;
+               margin-right: 0.5rem; /* Space between logo and text */
+           }
+          .report-container-pdf .report-header-pdf .brand-name-pdf {
+              font-size: 2rem;
+              color: #1e293b;
+              font-weight: 700;
+          }
+          .report-container-pdf .report-title-pdf {
+              font-size: 2rem;
+              color: #1e293b;
+              font-weight: 700;
+              margin-bottom: 1.5rem;
+              text-align: center;
+          }
+           .report-container-pdf .download-note-pdf {
+               display: none; /* Hide download note in PDF */
+           }
+    </style>
+</head>
+<body class="bg-e0f2f7 min-h-screen flex items-center justify-center p-4">
+    <div id="root"></div>
+
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+
+
+    <script type="text/babel">
+        // Helper function to get color class based on glucose reading
+        const getGlucoseColorClass = (reading) => {
+            if (reading < 70) return 'bg-yellow-500'; // Hypoglycemia
+            if (reading >= 70 && reading <= 140) return 'bg-green-500'; // Target range
+            if (reading > 140 && reading <= 180) return 'bg-orange-500'; // Moderately High
+            return 'bg-red-500'; // High
+        };
+
+         // Helper function to get color class based on A1C
+         const getA1cColorClass = (a1c) => {
+             if (a1c < 7) return 'bg-green-500'; // Target
+             if (a1c >= 7 && a1c <= 8) return 'bg-orange-500'; // Above target
+             return 'bg-red-500'; // High
+         };
+
+        // Helper function to get color class based on BMI
+         const getBmiColorClass = (bmi) => {
+             if (bmi < 18.5) return 'bg-yellow-500'; // Underweight
+             if (bmi >= 18.5 && bmi < 25) return 'bg-green-500'; // Healthy
+             if (bmi >= 25 && bmi < 30) return 'bg-orange-500'; // Overweight
+             return 'bg-red-500'; // Obese
+         };
+
+        // Helper function to get weekday from date string
+        const getWeekday = (dateString) => {
+            const date = new Date(dateString);
+            const options = { weekday: 'short' };
+            return date.toLocaleDateString('en-US', options);
+        };
+
+
+        // --- Static/Sample Data ---
+        // Adjusted sample data to represent consecutive days for weekday display
+        const sampleGlucoseData = [
+            { id: 1, date: "2023-10-26", time: "08:00", reading: 120, notes: "Before breakfast" }, // Assuming 2023-10-26 is a Monday for consistent display
+            { id: 2, date: "2023-10-27", time: "12:30", reading: 155, notes: "After lunch" },
+            { id: 3, date: "2023-10-28", time: "18:00", reading: 110, notes: "Before dinner" },
+            { id: 4, date: "2023-10-29", time: "08:00", reading: 115, notes: "Before breakfast" },
+            { id: 5, date: "2023-10-30", time: "13:00", reading: 170, notes: "After lunch, ate pasta" },
+            { id: 6, date: "2023-10-31", time: "18:30", reading: 135, notes: "Before dinner" },
+             { id: 7, date: "2023-11-01", time: "08:15", reading: 130, notes: "Before breakfast" },
+             { id: 8, date: "2023-11-02", time: "12:45", reading: 165, notes: "After lunch" },
+             { id: 9, date: "2023-11-03", time: "19:00", reading: 125, notes: "Before dinner" },
+             { id: 10, date: "2023-11-04", time: "08:00", reading: 118, notes: "Before breakfast" },
+             { id: 11, date: "2023-11-05", time: "13:00", reading: 150, notes: "After lunch" },
+             { id: 12, date: "2023-11-06", time: "18:30", reading: 112, notes: "Before dinner" },
+        ];
+
+        const sampleDoctorsData = [
+             { id: 1, name: "Dr. Aisha Khan", specialty: "Endocrinologist", experience: "10 years", rating: "4.8", location: "Lahore", phone: "+92 300 1234567", email: "aisha.khan@example.com" },
+             { id: 2, name: "Dr. Bilal Ahmed", specialty: "Diabetologist", experience: "8 years", rating: "4.7", location: "Karachi", phone: "+92 321 7654321", email: "bilal.ahmed@example.com" },
+             { id: 3, name: "Dr. Sana Tariq", specialty: "General Physician", experience: "12 years", rating: "4.9", location: "Islamabad", phone: "+92 333 9876543", email: "sana.tariq@example.com" },
+             { id: 4, name: "Dr. Usman Ali", specialty: "Endocrinologist", experience: "7 years", rating: "4.6", location: "Multan", phone: "+92 345 1122334", email: "usman.ali@example.com" },
+             { id: 5, name: "Dr. Zara Hassan", specialty: "Diabetologist", experience: "9 years", rating: "4.8", location: "Faisalabad", phone: "+92 312 5566778", email: "zara.hassan@example.com" },
+        ];
+
+        const sampleFaqs = [
+             { id: 1, question: "How often should I check my glucose levels?", answer: "It depends on your treatment plan. Consult your doctor for personalized advice. Typically, it's recommended to check before meals and before bedtime, or as advised by your healthcare provider. More frequent testing may be needed if you use insulin, are pregnant, or are experiencing symptoms of low or high blood sugar." },
+             { id: 2, question: "What foods should I avoid?", answer: "Minimize sugary drinks, refined carbohydrates (white bread, pasta, sugary cereals), and processed foods high in unhealthy fats (trans fats, excessive saturated fats). Focus on whole grains, lean proteins, fruits, vegetables, and healthy fats (from avocados, nuts, seeds, olive oil)." },
+             { id: 3, question: "Can I reverse diabetes?", answer: "Type 2 diabetes can often be managed and sometimes put into remission (often referred to as 'reversal') through significant lifestyle changes like healthy eating, regular physical activity, and achieving a healthy weight. Remission means blood sugar levels are within the non-diabetes range without medication. Type 1 diabetes is an autoimmune condition and cannot be reversed." },
+             { id: 4, question: "What are the symptoms of high blood sugar?", answer: "Common symptoms include frequent urination (polyuria), increased thirst (polydipsia), excessive hunger (polyphagia), fatigue, blurred vision, slow-healing sores, and unexplained weight loss. If you experience these symptoms, check your blood sugar and consult your doctor." },
+             { id: 5, question: "How can I prevent diabetes complications?", answer: "Maintaining blood sugar, blood pressure, and cholesterol levels within target ranges is crucial. Regular exercise, a healthy diet, not smoking, and attending regular medical checkups (including eye exams, foot exams, and kidney function tests) are essential for preventing long-term complications like heart disease, stroke, kidney disease, nerve damage, and eye problems." },
+             { id: 6, question: "What is A1C and why is it important?", answer: "A1C (or HbA1c) is a blood test that provides an average of your blood sugar levels over the past 2-3 months. It reflects how well your blood sugar has been controlled over time. It's a key indicator for assessing the risk of long-term complications and the effectiveness of your diabetes management plan. Your doctor will set a personal A1C target for you, often below 7% for many adults." },
+             { id: 7, question: "How does exercise help with diabetes?", answer: "Physical activity helps lower blood sugar levels by increasing insulin sensitivity (making your body's cells more responsive to insulin). It also helps with weight management, improves cardiovascular health, lowers blood pressure and cholesterol, and reduces stress. Aim for a mix of aerobic exercise and strength training." },
+             { id: 8, question: "What should I do if my blood sugar is low?", answer: "If you experience symptoms of low blood sugar (hypoglycemia, typically below 70 mg/dL), follow the '15-15 rule': Consume 15 grams of fast-acting carbohydrates (like glucose tablets, 4 ounces of fruit juice or regular soda, or 1 tablespoon of sugar or honey). Wait 15 minutes and recheck your blood sugar. Repeat if necessary. Once your blood sugar is back in your target range, eat a small snack if your next meal is more than an hour away. Always carry a source of fast-acting sugar." },
+             { id: 9, question: "What are common diabetes medications?", answer: "Medications vary depending on the type of diabetes, individual needs, and other health conditions. They can include oral medications (like Metformin, Sulfonylureas, DPP-4 inhibitors, SGLT-2 inhibitors), injectable non-insulin medications (like GLP-1 receptor agonists), and various types of insulin. Your healthcare provider will determine the most appropriate medication regimen for you." },
+             { id: 10, question: "How does stress affect blood sugar?", answer: "Stress can cause your body to release hormones that can increase blood sugar levels. Chronic stress can make diabetes management more challenging. Finding healthy coping mechanisms for stress, such as exercise, mindfulness, meditation, yoga, or seeking support from a mental health professional, is important." },
+             { id: 11, question: "Is it safe to drink alcohol with diabetes?", answer: "Alcohol can affect blood sugar levels, potentially causing hypoglycemia hours after consumption, especially if you take insulin or certain oral medications. If you choose to drink, do so in moderation (up to one drink per day for women, up to two for men), with food, and monitor your blood sugar closely. Avoid sugary mixers. Discuss safe alcohol consumption with your doctor." },
+             { id: 12, question: "What is diabetic neuropathy?", answer: "Diabetic neuropathy is nerve damage caused by high blood sugar over time. It most commonly affects the nerves in the legs and feet (peripheral neuropathy), causing symptoms like pain, tingling, numbness, or loss of sensation. It can also affect nerves controlling internal organs (autonomic neuropathy). Good blood sugar control is the primary way to prevent or slow the progression of neuropathy." },
+             { id: 13, question: "How important is foot care for people with diabetes?", answer: "Foot care is critically important. Diabetes can lead to reduced blood flow and nerve damage in the feet, making them vulnerable to injuries, infections, and slow-healing sores (ulcers). These can potentially lead to serious complications, including amputation. Inspect your feet daily, wash them gently, keep them dry, wear well-fitting shoes, and have them checked by a healthcare professional at least annually." },
+             { id: 14, question: "What is diabetic retinopathy?", answer: "Diabetic retinopathy is a complication of diabetes that affects the eyes. High blood sugar damages the blood vessels in the retina, the light-sensitive tissue at the back of the eye. It can lead to vision loss and blindness if not treated. Regular comprehensive eye exams (at least annually) are essential for early detection and treatment." },
+             { id: 15, question: "How does diabetes affect kidney health?", answer: "Diabetes is a leading cause of chronic kidney disease (diabetic nephropathy). High blood sugar damages the small blood vessels in the kidneys, impairing their ability to filter waste from the blood. Good blood sugar and blood pressure control are vital for protecting kidney function. Regular urine tests (for albumin) and blood tests (for creatinine) are used to monitor kidney health." },
+        ];
+
+         // Sample Diet Plan Data
+         const sampleDietPlan = {
+             title: "Sample Type 2 Diabetes Meal Plan (1800 Calories)",
+             description: "This is a general guideline. Calorie and meal composition needs vary based on age, sex, weight, activity level, and individual health conditions. Consult a registered dietitian for a personalized plan.",
+             meals: [
+                 {
+                     name: "Breakfast",
+                     items: [
+                         "1/2 cup rolled oats cooked with water or unsweetened almond milk",
+                         "1/4 cup berries (strawberries, blueberries)",
+                         "1 tablespoon chopped nuts (walnuts, almonds)",
+                         "2 scrambled eggs or 1/2 cup Greek yogurt (plain, non-fat)"
+                     ]
+                 },
+                 {
+                     name: "Mid-Morning Snack",
+                     items: [
+                         "1 small apple or orange",
+                         "1/4 cup unsalted almonds or walnuts"
+                     ]
+                 },
+                 {
+                     name: "Lunch",
+                     items: [
+                         "3 ounces grilled chicken breast or baked fish",
+                         "2 cups mixed greens salad with assorted non-starchy vegetables (cucumber, tomatoes, bell peppers)",
+                         "2 tablespoons olive oil-based dressing",
+                         "1/2 cup cooked quinoa or brown rice"
+                     ]
+                 },
+                 {
+                     name: "Afternoon Snack",
+                     items: [
+                         "1 cup non-starchy vegetables (carrots, celery, bell peppers) with 2 tablespoons hummus",
+                         "1/2 cup cottage cheese (low-fat)"
+                     ]
+                 },
+                 {
+                     name: "Dinner",
+                     items: [
+                         "4 ounces baked salmon or lean beef",
+                         "1.5 cups steamed or roasted non-starchy vegetables (broccoli, green beans, asparagus)",
+                         "1/2 sweet potato (medium, baked or roasted)"
+                     ]
+                 },
+                 {
+                     name: "Evening Snack (if needed, check blood sugar)",
+                     items: [
+                         "1/2 cup plain non-fat Greek yogurt",
+                         "A few cherry tomatoes"
+                     ]
+                 }
+             ],
+             notes: [
+                 "Stay hydrated by drinking plenty of water throughout the day.",
+                 "Limit sugary drinks, fruit juice, and sweetened beverages.",
+                 "Choose whole-grain options over refined grains.",
+                 "Control portion sizes, especially for carbohydrates.",
+                 "Listen to your body's hunger and fullness cues.",
+                 "Adjust meal timing and composition based on your medication schedule and physical activity."
+             ]
+         };
+
+
+        // --- AI Consultation Logic ---
+        const getAIResponse = (question, userData, glucoseData) => {
+            const lowerQuestion = question.toLowerCase();
+            const age = parseInt(userData.age) || 30;
+            const weight = parseInt(userData.weight) || 70;
+            const height = parseInt(userData.height) || 170;
+            const history = userData.history ? userData.history.toLowerCase() : "";
+            const diabetesType = userData.diabetesType ? userData.diabetesType.toLowerCase() : "not specified";
+            const duration = parseInt(userData.duration) || 5;
+
+            // Calculate metrics from provided data
+            const totalGlucose = glucoseData.reduce((sum, data) => sum + data.reading, 0);
+            const avgGlucose = glucoseData.length > 0 ? (totalGlucose / glucoseData.length) : null;
+            const estimatedA1c = avgGlucose !== null ? ((avgGlucose + 46.7) / 28.7).toFixed(1) : null;
+            const bmi = (weight / ((height / 100) ** 2)).toFixed(1);
+
+            let response = "I'm an AI assistant providing general information. For personalized medical advice, please consult your doctor or healthcare provider.";
+
+            // --- Enhanced Response Logic based on keywords and user data ---
+
+            if (lowerQuestion.includes("glucose") || lowerQuestion.includes("sugar") || lowerQuestion.includes("reading") || lowerQuestion.includes("blood sugar")) {
+                response = `Regarding your blood sugar levels: `;
+                if (avgGlucose !== null) {
+                    response += `Based on your recent readings, your average glucose is ${avgGlucose.toFixed(0)} mg/dL. `;
+                    if (avgGlucose > 180) {
+                        response += `This average is quite high, indicating a need for immediate attention to your management plan. Consistent high blood sugar significantly increases the risk of complications.`;
+                    } else if (avgGlucose > 140) {
+                        response += `Your average is elevated. Levels consistently above the target range (typically < 180 mg/dL post-meal) should be discussed with your doctor.`;
+                    } else if (avgGlucose < 80) {
+                        response += `Your average might be low, which could indicate a risk of hypoglycemia. Ensure you are eating regularly and monitoring for symptoms.`;
+                    } else {
+                        response += `Your average glucose is within a generally recommended range. Maintaining this consistency is key for long-term health.`;
+                    }
+                     response += ` Your estimated A1C, based on these readings, is around ${estimatedA1c}%. An A1C target is usually below 7% for many adults, but your doctor will set your personal target.`;
+                } else {
+                    response += `I don't have enough recent glucose data to provide a specific average. Please log your readings regularly.`;
+                }
+                 response += ` For someone with ${diabetesType} diabetes at age ${age}, target ranges can vary, but common goals are fasting glucose 80-130 mg/dL and post-meal under 180 mg/dL. Factors like diet, exercise, medication, stress, and illness can all impact your readings. Analyzing patterns in your logged data can help identify triggers for highs or lows.`;
+
+            } else if (lowerQuestion.includes("diet") || lowerQuestion.includes("food") || lowerQuestion.includes("eat") || lowerQuestion.includes("meal") || lowerQuestion.includes("nutrition")) {
+                response = "Nutrition is a cornerstone of diabetes management. The goal is to balance carbohydrate intake with medication and activity to maintain stable blood sugar levels.";
+                 if (diabetesType.includes("type 2")) {
+                     response += " For Type 2 diabetes, focusing on weight management, portion control, and choosing complex carbohydrates over simple sugars is particularly beneficial.";
+                 } else if (diabetesType.includes("type 1")) {
+                     response += " With Type 1 diabetes, precise carbohydrate counting is essential to match your insulin doses to your food intake.";
+                 }
+                response += " Prioritize whole, unprocessed foods: plenty of non-starchy vegetables, lean proteins (chicken, fish, beans, tofu), healthy fats (avocado, nuts, seeds, olive oil), and complex carbohydrates (whole grains, legumes). Limit sugary drinks, sweets, refined grains, and excessive saturated/trans fats. Pay attention to portion sizes – a visual guide is often half the plate with non-starchy vegetables, a quarter with lean protein, and a quarter with complex carbohydrates. Since you are ${age} years old and weigh ${weight}kg, your individual calorie and macronutrient needs will vary based on your activity level and goals (e.g., weight loss). Given your medical history, which includes '${history}', certain dietary considerations might be necessary (e.g., lower sodium for blood pressure, adjusted protein for kidney health). Consulting a registered dietitian is highly recommended for a personalized meal plan.";
+
+            } else if (lowerQuestion.includes("exercise") || lowerQuestion.includes("workout") || lowerQuestion.includes("activity") || lowerQuestion.includes("physical activity") || lowerQuestion.includes("fitness")) {
+                response = "Regular physical activity is a powerful tool for managing diabetes. It improves insulin sensitivity, helps with weight management, lowers blood pressure and cholesterol, and boosts mood.";
+                 let activityRecommendation = `Aim for at least 150 minutes of moderate-intensity aerobic exercise per week (e.g., brisk walking, cycling, swimming), spread over at least 3 days, with no more than 2 consecutive days without activity.`;
+
+                if (age < 40) {
+                    activityRecommendation += ` At your age and weight, incorporating more vigorous aerobic activities (like running or high-impact sports, if appropriate) can provide greater cardiovascular benefits. Include strength training exercises for all major muscle groups at least 2-3 times per week on non-consecutive days.`;
+                } else if (age < 60) {
+                     activityRecommendation += ` Moderate-intensity activities like brisk walking, jogging, or cycling are excellent. Add strength training using weights, resistance bands, or bodyweight exercises. Flexibility and balance exercises are also beneficial.`;
+                 } else {
+                     activityRecommendation += ` Focus on maintaining mobility, balance, and strength with low-impact activities like walking, water aerobics, chair exercises, or light resistance training. Aim for consistency, even in shorter bursts of activity.`;
+                 }
+
+                if (history.includes("heart") || history.includes("cardiac")) {
+                    response += ` Given your medical history (${history}), it is crucial to get clearance from your doctor before starting any new exercise program. They can perform an evaluation and recommend a safe and appropriate plan.`;
+                } else if (history.includes("joint") || history.includes("arthritis")) {
+                     response += ` Consider low-impact options like swimming, water aerobics, cycling, or using an elliptical machine to reduce stress on your joints. Stretching and range-of-motion exercises are also helpful.`;
+                 } else {
+                    response += " Always check your blood sugar before and after exercise, especially when starting a new routine or increasing intensity, as physical activity can lower glucose levels. Carry a source of fast-acting carbohydrates to treat potential hypoglycemia. Stay well-hydrated before, during, and after exercise.";
+                 }
+                 response += ` ${activityRecommendation} Consistency is more important than intensity when you're starting out. Find activities you enjoy!`;
+
+
+            } else if (lowerQuestion.includes("insulin") || lowerQuestion.includes("medication") || lowerQuestion.includes("dose") || lowerQuestion.includes("metformin") || lowerQuestion.includes("drugs")) {
+                response = "Medication is often a necessary component of diabetes management, working alongside diet and exercise to help keep blood sugar levels in your target range.";
+                 if (diabetesType.includes("type 1")) {
+                     response += " If you have Type 1 diabetes, insulin therapy is essential for survival as your body doesn't produce enough insulin. This involves carefully timing and dosing different types of insulin (rapid-acting, short-acting, intermediate-acting, long-acting) based on your carbohydrate intake, blood sugar levels, and activity.";
+                 } else if (diabetesType.includes("type 2")) {
+                     response += " For Type 2 diabetes, treatment often starts with lifestyle changes and Metformin, which helps improve insulin sensitivity and reduce glucose production by the liver. Other oral medications work in different ways (e.g., stimulating insulin release, slowing carbohydrate absorption, increasing glucose excretion). Injectable non-insulin medications (like GLP-1 receptor agonists) or insulin may be added if needed to achieve blood sugar goals.";
+                 } else {
+                     response += ` Depending on your diabetes type and how long you've had diabetes (${duration} years), your doctor will determine the most appropriate medication regimen for you, which may involve oral pills, injectable medications, or insulin.`;
+                 }
+                response += " It is absolutely critical to take your medication exactly as prescribed by your doctor. Do not skip doses, change the amount, or stop taking medication without their explicit guidance. If you experience any side effects (e.g., gastrointestinal issues with Metformin, risk of hypoglycemia with Sulfonylureas or insulin), or have questions about how your medication works or interacts with other substances, contact your healthcare provider immediately. They can adjust your treatment plan or offer alternative options.";
+
+            } else if (lowerQuestion.includes("weight") || lowerQuestion.includes("lose weight") || lowerQuestion.includes("gain weight") || lowerQuestion.includes("bmi")) {
+                response = `Weight management is a key factor in diabetes care, especially for Type 2 diabetes. Your estimated BMI is ${bmi} (calculated with weight ${weight}kg and height ${height}cm).`;
+                if (bmi < 18.5) {
+                    response += " This suggests you might be underweight. While less common with diabetes, being underweight can also pose health risks. Discuss healthy weight gain strategies and nutritional needs with your doctor or a dietitian to ensure you're getting adequate nutrients.";
+                } else if (bmi >= 18.5 && bmi < 25) {
+                    response += " This is within a healthy weight range. Maintaining a healthy weight is excellent for diabetes management and reducing the risk of complications. Continue with healthy eating habits and regular physical activity.";
+                } else if (bmi >= 25 && bmi < 30) {
+                    response += " This indicates you are overweight. Losing even a modest amount of weight (5-10% of your current body weight) can have significant benefits for blood sugar control, blood pressure, cholesterol levels, and overall health. Focus on creating a sustainable calorie deficit through dietary changes and increasing physical activity.";
+                } else { // BMI >= 30
+                    response += " This indicates obesity. Weight loss is a critical factor in managing diabetes and reducing the risk of serious complications. Significant and sustained weight loss can even lead to remission of Type 2 diabetes. Work closely with your healthcare team, which may include a doctor, registered dietitian, and potentially other specialists, to develop a safe and effective weight loss plan. This might involve dietary changes, increased physical activity, behavioral therapy, medication, or in some cases, bariatric surgery.";
+                }
+                response += " Remember that achieving and maintaining a healthy weight is a long-term commitment to healthy habits.";
+
+            } else if (lowerQuestion.includes("complications") || lowerQuestion.includes("eyes") || lowerQuestion.includes("kidneys") || lowerQuestion.includes("feet") || lowerQuestion.includes("nerves") || lowerQuestion.includes("heart") || lowerQuestion.includes("circulation")) {
+                 response = "Diabetes can affect various organ systems over time, leading to long-term complications, but proactive and consistent management can significantly reduce your risk and impact.";
+                 response += " These complications include: Diabetic Retinopathy (eye damage, potentially leading to vision loss), Diabetic Nephropathy (kidney damage, potentially leading to kidney failure), Diabetic Neuropathy (nerve damage, often affecting hands and feet, causing pain, numbness, or tingling), Cardiovascular Disease (damage to heart and blood vessels, increasing risk of heart attack and stroke), and Diabetic Foot Problems (due to nerve damage and poor circulation, increasing risk of infections and ulcers).";
+                 if (duration > 10) {
+                     response += ` Having had diabetes for ${duration} years increases the importance of regular screening and vigilance for complications.`;
+                 }
+                 if (history) {
+                     response += ` Your medical history (${history}) also indicates potential areas of increased risk that require close monitoring and management.`;
+                 }
+                 response += " The best way to prevent or delay complications is to maintain blood sugar, blood pressure, and cholesterol levels within your target ranges. This is achieved through a healthy diet, regular exercise, consistent medication use, not smoking, and attending all recommended preventative screenings (e.g., annual dilated eye exams, annual foot exams, regular kidney function tests like urine albumin and blood creatinine, blood pressure and cholesterol checks). Early detection and intervention are key to managing complications effectively.";
+
+            } else if (lowerQuestion.includes("a1c") || lowerQuestion.includes("hba1c")) {
+                 response = `The A1C test (Hemoglobin A1c) provides an average picture of your blood sugar levels over the past 2-3 months by measuring the percentage of hemoglobin in your red blood cells that is coated with sugar. Your estimated A1C, based on your recent readings, is approximately ${estimatedA1c}%.`;
+                 if (estimatedA1c !== null) {
+                     if (estimatedA1c > 8) {
+                         response += " An A1C above 8% suggests that your blood sugar has been consistently high, significantly increasing your risk of developing diabetes complications. It's important to discuss strategies with your doctor to bring this number down, which may involve adjusting medication, diet, or exercise.";
+                     } else if (estimatedA1c >= 7 && estimatedA1c <= 8) {
+                         response += " An A1C in this range indicates that your blood sugar levels are above the typical target for many adults with diabetes (usually below 7%). This range still carries an increased risk of complications compared to being within the target. Review your current management plan (diet, exercise, medication) with your healthcare provider to see how it can be improved.";
+                     } else if (estimatedA1c < 7) {
+                         response += " An A1C below 7% is generally the target for many adults with diabetes and is associated with a significantly reduced risk of long-term complications. This indicates good blood sugar control over the past few months. Keep up the consistent effort!";
+                     }
+                 } else {
+                     response += " I cannot estimate your A1C without recent glucose readings. Please log your blood sugar regularly.";
+                 }
+                 response += " Regular A1C testing (typically every 3-6 months, or more often if your treatment plan changes) is a crucial tool for monitoring the effectiveness of your diabetes management plan and making necessary adjustments.";
+
+            } else if (lowerQuestion.includes("hypoglycemia") || lowerQuestion.includes("low sugar") || lowerQuestion.includes("low blood sugar")) {
+                 response = "Hypoglycemia, or low blood sugar (typically defined as a blood glucose level below 70 mg/dL), is a common concern for people with diabetes, especially those using insulin or certain oral medications. Symptoms can vary but often include shakiness, sweating, dizziness, confusion, rapid heartbeat, hunger, headache, and irritability. Severe hypoglycemia can lead to inability to eat or drink, unconsciousness, or seizures and requires immediate medical attention.";
+                 response += " Common causes include skipping meals, delaying a meal, eating less carbohydrates than planned, taking too much medication (insulin or certain pills), increased physical activity without adjusting food or medication, or drinking alcohol.";
+                 response += " If you experience symptoms and can check your blood sugar, do so. If it's low, treat it immediately using the '15-15 rule': Consume 15 grams of fast-acting carbohydrates (e.g., 4 glucose tablets, 4 ounces of fruit juice or regular soda, 1 tablespoon of sugar or honey). Wait 15 minutes and recheck your blood sugar. Repeat if necessary until your blood sugar is above 70 mg/dL. Once your blood sugar is back in target range, eat a small snack if your next meal is more than an hour away. Always carry a source of fast-acting sugar with you. It's also important to understand why the low occurred to prevent it in the future and discuss recurrent lows with your doctor.";
+
+            } else if (lowerQuestion.includes("hyperglycemia") || lowerQuestion.includes("high sugar") || lowerQuestion.includes("high blood sugar")) {
+                 response = "Hyperglycemia, or high blood sugar, occurs when there is too much glucose in the blood (typically above 180 mg/dL, though targets vary). Short-term hyperglycemia can cause symptoms like increased thirst, frequent urination, fatigue, blurred vision, and headache. Persistent or very high hyperglycemia can lead to serious acute complications like Diabetic Ketoacidosis (DKA, more common in Type 1 diabetes) or Hyperosmolar Hyperglycemic State (HHS, more common in Type 2 diabetes), both of which are medical emergencies.";
+                 response += " Common causes include eating too many carbohydrates, not taking enough medication (insulin or pills), stress, illness, infection, or lack of physical activity.";
+                 response += ` Your recent average glucose of ${avgGlucose !== null ? avgGlucose.toFixed(0) + ' mg/dL' : 'N/A'} suggests you might be experiencing hyperglycemia sometimes. If your blood sugar is high, follow your doctor's sick-day plan if you are ill. Drink plenty of water to stay hydrated. If you take insulin, your doctor may have provided instructions for correction doses. If your blood sugar remains high despite taking corrective measures, or if you experience symptoms of DKA (nausea, vomiting, abdominal pain, deep rapid breathing, fruity-smelling breath) or HHS (severe dehydration, confusion, high fever), seek immediate medical attention. Identifying the cause of high blood sugar is important for preventing future episodes, so review your patterns with your healthcare team.`;
+
+            } else if (lowerQuestion.includes("sick") || lowerQuestion.includes("illness") || lowerQuestion.includes("fever") || lowerQuestion.includes("flu")) {
+                response = "Being sick, even with a common cold or flu, can significantly affect your blood sugar levels, often causing them to rise due to stress hormones. Having a sick-day plan is crucial for managing diabetes during illness.";
+                 response += " Key steps during illness include: Continue taking your diabetes medication as prescribed (your doctor may adjust doses, especially insulin, during illness). Test your blood sugar more frequently (e.g., every 2-4 hours). Stay well-hydrated by drinking plenty of fluids (water, broth, sugar-free drinks). If you have Type 1 diabetes or if recommended by your doctor, check for ketones in your urine or blood. Know when to call your doctor or seek emergency care (e.g., persistent vomiting or diarrhea, inability to keep fluids down, moderate to high ketones, high fever, shortness of breath, blood sugar consistently over 240 mg/dL). Do not stop taking insulin unless specifically instructed by your doctor.";
+
+            } else if (lowerQuestion.includes("stress") || lowerQuestion.includes("anxiety") || lowerQuestion.includes("mental health") || lowerQuestion.includes("burnout")) {
+                 response = "Stress and mental well-being have a significant impact on diabetes management. Chronic stress can lead to higher blood sugar levels by triggering the release of hormones like cortisol. It can also make it harder to stick to your healthy eating and exercise plan.";
+                 response += " Finding effective ways to manage stress is vital. This can include regular physical activity, mindfulness or meditation, deep breathing exercises, yoga, spending time in nature, pursuing hobbies, ensuring adequate sleep, and seeking support from friends, family, or support groups. It's also important to recognize that living with diabetes can be emotionally challenging, sometimes leading to feelings of frustration, burnout, depression, or anxiety. If you are struggling with your mental health, please reach out to a mental health professional or discuss it with your doctor. Taking care of your emotional well-being is just as important as managing your physical health.";
+
+            } else if (lowerQuestion.includes("sleep") || lowerQuestion.includes("tired") || lowerQuestion.includes("fatigue")) {
+                response = "Getting enough quality sleep is important for managing blood sugar and overall health. Poor sleep can negatively affect insulin sensitivity, increase appetite for unhealthy foods, and make it harder to make healthy choices.";
+                 response += " Aim for 7-9 hours of consistent, restful sleep per night. Establish a regular sleep schedule by going to bed and waking up around the same time each day, even on weekends. Create a relaxing bedtime routine. Ensure your bedroom is dark, quiet, and cool. Avoid caffeine and alcohol close to bedtime. Limit screen time before sleep. If you suspect you have a sleep disorder, such as sleep apnea (which is more common in people with diabetes and can impact blood sugar control), discuss it with your doctor for diagnosis and treatment.";
+
+            } else if (lowerQuestion.includes("smoking") || lowerQuestion.includes("quit smoking") || lowerQuestion.includes("tobacco")) {
+                 response = "If you smoke, quitting is one of the single most beneficial things you can do for your diabetes and long-term health. Smoking is a major risk factor that significantly worsens diabetes complications.";
+                 response += " Smoking damages blood vessels, making it much harder for blood to flow, which increases the risk of serious complications like heart attack, stroke, kidney disease, nerve damage, eye problems, and poor circulation in the legs and feet (increasing the risk of ulcers and amputations). Smoking also makes it harder to control blood sugar. Seek support and resources to help you quit. Talk to your doctor about smoking cessation programs, nicotine replacement therapy, or other medications that can help you succeed. Quitting is challenging but achievable and has immense rewards for your health.";
+
+            } else if (lowerQuestion.includes("doctors") || lowerQuestion.includes("specialists") || lowerQuestion.includes("healthcare team") || lowerQuestion.includes("appointment")) {
+                 response = "Managing diabetes is a team effort! Your healthcare team is essential for providing personalized care, monitoring your condition, adjusting treatment, and screening for complications.";
+                 response += " Your team may include: A Primary Care Physician (for overall health), an Endocrinologist (a specialist in diabetes and hormones, like Dr. ${sampleDoctorsData[0].name} in ${sampleDoctorsData[0].location}), a Registered Dietitian or Nutritionist (for personalized meal planning), a Certified Diabetes Educator (CDE) (for education and support on self-management), an Ophthalmologist (eye doctor) (for annual dilated eye exams to check for retinopathy), a Podiatrist (foot doctor) (for regular foot exams), and potentially other specialists depending on your medical history (e.g., cardiologist, nephrologist).";
+                 response += " Regular appointments with your healthcare team are crucial. Don't hesitate to ask questions, share your concerns, and discuss your blood sugar data, diet, exercise, and any symptoms you're experiencing. They are there to support you.";
+
+            } else if (lowerQuestion.includes("report") || lowerQuestion.includes("summary") || lowerQuestion.includes("progress")) {
+                 response = "I can generate a summary report based on the user information you've provided and your logged glucose readings. This report consolidates key data points like your average glucose, estimated A1C, BMI, and recent readings. It can be a helpful tool for tracking your progress over time and for sharing information with your healthcare team during appointments. You can access and download the report from the 'Generate Report' section of the dashboard.";
+
+            } else if (lowerQuestion.includes("hypo symptoms") || lowerQuestion.includes("signs of low sugar")) {
+                 response = "Symptoms of low blood sugar (hypoglycemia) can vary from person to person but commonly include: Shakiness or trembling, Sweating, Rapid heartbeat (palpitations), Dizziness or lightheadedness, Feeling hungry, Irritability or nervousness, Headache, Blurred vision, Weakness or fatigue, Confusion or difficulty concentrating. Severe hypoglycemia can lead to inability to eat or drink, unconsciousness, or seizures. It's important to recognize your own symptoms of hypoglycemia and treat it promptly.";
+
+            } else if (lowerQuestion.includes("hyper symptoms") || lowerQuestion.includes("signs of high sugar")) {
+                 response = "Symptoms of high blood sugar (hyperglycemia) often develop slowly over hours or days. Common signs include: Increased thirst, Frequent urination, Increased hunger, Fatigue or weakness, Blurred vision, Headache, Slow-healing cuts or sores, Unexplained weight loss. If hyperglycemia is severe and left untreated, it can lead to diabetic ketoacidosis (DKA) or hyperosmolar hyperglycemic State (HHS), which have more severe symptoms and require emergency medical care.";
+
+            } else if (lowerQuestion.includes("carbohydrates") || lowerQuestion.includes("carbs")) {
+                 response = "Carbohydrates are a primary nutrient that affects blood sugar levels because they are broken down into glucose. Managing your carbohydrate intake is essential for diabetes control.";
+                 response += " Focus on complex carbohydrates found in whole grains, legumes, vegetables, and fruits, which are also rich in fiber, vitamins, and minerals. Fiber helps slow down glucose absorption, preventing sharp spikes in blood sugar. Limit simple carbohydrates found in sugary drinks, sweets, white bread, and pasta, as they cause rapid blood sugar increases. Portion control for carbohydrates is key, especially if you take insulin or certain oral medications. Learning to count carbohydrates can be very helpful for matching your food intake to your medication and activity.";
+
+            } else if (lowerQuestion.includes("fiber")) {
+                 response = "Fiber is a type of carbohydrate that your body cannot digest. It plays a crucial role in diabetes management and overall health.";
+                 response += " Fiber helps slow down the absorption of sugar into the bloodstream, which can prevent blood sugar spikes after meals. It also helps you feel full longer, which can aid in weight management. Additionally, fiber supports digestive health and can help lower cholesterol levels. Good sources of fiber include vegetables, fruits (with the skin), whole grains (oats, brown rice, whole wheat bread), legumes (beans, lentils, chickpeas), nuts, and seeds. Aim for at least 25-30 grams of fiber per day.";
+
+            } else if (lowerQuestion.includes("protein")) {
+                 response = "Protein is an important nutrient for everyone, including people with diabetes. It helps build and repair tissues, supports immune function, and can help you feel full.";
+                 response += " Protein has a minimal direct impact on blood sugar levels compared to carbohydrates. Including a source of lean protein at each meal can help slow down the absorption of carbohydrates and prevent rapid blood sugar spikes. Good sources of lean protein include chicken breast, turkey, fish, lean cuts of beef or pork, eggs, beans, lentils, tofu, and Greek yogurt. If you have diabetic kidney disease, your doctor or dietitian may recommend adjusting your protein intake.";
+
+            } else if (lowerQuestion.includes("fats")) {
+                 response = "Fats are an essential part of a healthy diet, but the *type* of fat matters, especially for people with diabetes who are at increased risk of heart disease.";
+                 response += " Focus on unsaturated fats, particularly monounsaturated and polyunsaturated fats, found in sources like avocados, nuts, seeds, olive oil, and fatty fish (salmon, mackerel). These fats can help improve cholesterol levels and support heart health. Limit saturated fats (found in red meat, butter, full-fat dairy) and avoid trans fats (often found in processed foods, baked goods, fried foods) as they can increase the risk of heart disease. While fats don't directly raise blood sugar, they are calorie-dense and can contribute to weight gain, and a high-fat meal can sometimes cause a delayed rise in blood sugar.";
+
+            } else if (lowerQuestion.includes("hydration") || lowerQuestion.includes("water")) {
+                 response = "Staying well-hydrated is important for everyone, and particularly for people with diabetes.";
+                 response += " Dehydration can affect blood sugar levels. High blood sugar can lead to increased urination, which can cause dehydration. Drinking enough water helps your kidneys flush out excess glucose. It's especially important to stay hydrated during illness or exercise. Make water your primary beverage choice and limit sugary drinks.";
+
+            } else if (lowerQuestion.includes("foot care") || lowerQuestion.includes("feet")) {
+                 response = "Diabetic foot care is extremely important to prevent serious complications. Diabetes can cause nerve damage (neuropathy) and poor circulation in the feet, making them prone to injuries, infections, and ulcers that may not heal well.";
+                 response += " Daily foot care routine: Inspect your feet every day for cuts, blisters, red spots, swelling, or infected toenails. Wash your feet daily with lukewarm water and mild soap, and dry them thoroughly, especially between the toes. Moisturize your feet to prevent dry, cracked skin, but avoid moisturizing between the toes. Trim toenails straight across. Always wear shoes and socks (avoid going barefoot). Wear well-fitting shoes that don't rub. Check inside your shoes before wearing them. Have your feet checked by a healthcare professional at least annually. Report any foot problems to your doctor immediately.";
+
+            } else if (lowerQuestion.includes("eye exam") || lowerQuestion.includes("retinopathy")) {
+                 response = "Diabetic retinopathy is a serious eye complication of diabetes that can lead to vision loss. It's caused by damage to the blood vessels in the retina due to high blood sugar.";
+                 response += " The good news is that with early detection and treatment, vision loss can often be prevented or delayed. It is crucial to have a comprehensive dilated eye exam by an ophthalmologist or optometrist at least once a year, or more often if recommended by your eye doctor. Don't wait for symptoms, as significant damage can occur before you notice vision changes. Maintaining good blood sugar, blood pressure, and cholesterol control is the best way to prevent or slow the progression of retinopathy.";
+
+            } else if (lowerQuestion.includes("kidney health") || lowerQuestion.includes("nephropathy")) {
+                 response = "Diabetic nephropathy is kidney damage caused by diabetes and is a leading cause of kidney failure. High blood sugar and high blood pressure damage the small blood vessels in the kidneys, reducing their ability to filter waste.";
+                 response += " Protecting your kidneys is vital. This involves maintaining excellent blood sugar control, managing blood pressure (often with medications like ACE inhibitors or ARBs), and managing cholesterol. Regular screening for kidney damage is important, which includes a urine test to check for albumin (a type of protein) and a blood test to measure kidney function (eGFR, estimated glomerular filtration rate). Your doctor will determine how often you need these tests, usually at least annually.";
+
+            } else if (lowerQuestion.includes("sick day rules")) {
+                 response = "Sick day rules are guidelines for managing your diabetes when you are ill. Illness can make blood sugar unpredictable.";
+                 response += " Key sick day rules include: Never stop taking your insulin (you may need to adjust the dose). Continue taking other diabetes medications unless your doctor tells you otherwise. Test your blood sugar more often (e.g., every 2-4 hours). Drink plenty of fluids to prevent dehydration (choose sugar-free options if blood sugar is high). If you can't eat solid food, consume liquids or soft foods containing carbohydrates to get enough calories and carbs. Check for ketones if recommended by your doctor. Know when to call your doctor (e.g., vomiting, high ketones, high fever, blood sugar consistently high or low).";
+
+            } else if (lowerQuestion.includes("travel")) {
+                 response = "Traveling with diabetes requires some planning to ensure you stay on track with your management.";
+                 response += " Tips for traveling: Pack double the amount of medication, supplies (glucose strips, lancets, insulin pens/syringes), and snacks you think you'll need. Carry a doctor's note explaining your need for diabetes supplies. Keep medications and supplies in your carry-on luggage. Be mindful of time zone changes and how they affect medication timing. Plan for meals and snacks, especially during long flights or drives. Stay active during travel. Monitor blood sugar more frequently, especially when trying new foods or dealing with schedule changes. Stay hydrated.";
+
+            } else if (lowerQuestion.includes("goals") || lowerQuestion.includes("targets")) {
+                 response = "Setting and working towards personal health goals is a great way to stay motivated in managing your diabetes.";
+                 response += " Your healthcare team will help you set target ranges for blood sugar (fasting, before meals, after meals), A1C, blood pressure, and cholesterol. Beyond these numbers, consider setting behavioral goals related to diet (e.g., eating more vegetables), exercise (e.g., walking 30 minutes daily), weight management, or stress reduction. Break down large goals into smaller, achievable steps. Track your progress (logging data helps!). Celebrate successes and learn from setbacks. Discuss your goals with your healthcare team so they can support you.";
+
+            } else if (lowerQuestion.includes("support group") || lowerQuestion.includes("community")) {
+                 response = "Connecting with others who have diabetes can provide valuable emotional support, practical tips, and a sense of community.";
+                 response += " Consider joining a local or online diabetes support group. Sharing experiences and challenges with others who understand can reduce feelings of isolation and provide encouragement. Certified Diabetes Educators often run support groups or can help you find one. Online forums and social media groups dedicated to diabetes can also be good resources, but always be cautious about medical advice shared online and verify information with your healthcare provider.";
+
+            } else {
+                // Default or more general response
+                 response = "I can provide information on various diabetes-related topics such as glucose levels, diet, exercise, medication, complications, A1C, sick days, stress, sleep, and more. Please ask a specific question. Remember, I am an AI assistant and cannot provide medical advice. Always consult a healthcare professional for diagnosis and treatment.";
+            }
+
+            return response;
+        };
+
+
+        // --- React Components ---
+
+        // Home Page
+        const Home = ({ setView }) => (
+            // Reverted to previous background and styling for home page
+            <div className="flex flex-col items-center justify-center h-full p-6 text-center" style={{ background: 'linear-gradient(135deg, #f0f8ff, #d1e9ff)', minHeight: 'calc(100vh - 2rem)', borderRadius: '8px' }}>
+                 {/* Added Logo Placeholder and placed it to the left */}
+                 <div className="flex items-center justify-center mb-4 animate-fadeIn"> {/* Flex container for logo and title */}
+                     <div className="text-6xl text-sky-600 mr-4">🩺</div> {/* Example Logo Placeholder */}
+                     <h1 className="text-5xl font-bold text-slate-800">InsuGenie</h1>
+                 </div>
+                <p className="text-xl text-gray-600 mb-8">Your AI-powered diabetes management solution</p> {/* Updated subtitle */}
+                <button
+                    className="px-8 py-4 text-xl bg-sky-600 text-white rounded-md shadow-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                    onClick={() => setView('form')}
+                >
+                    Get Started
+                </button>
+            </div>
+        );
+
+        // User Information Form
+        const UserForm = ({ userData, setUserData, setView, formErrors, validateForm, setFormErrors }) => {
+             const handleInputChange = (e) => {
+                 const { name, value } = e.target;
+                 setUserData({ ...userData, [name]: value });
+                 // Clear error for the input being changed
+                 if (formErrors[name]) {
+                     setFormErrors({ ...formErrors, [name]: null });
+                 }
+             };
+
+            const handleSubmit = () => {
+                if (validateForm()) {
+                    setView('dashboard');
+                }
+            };
+
+            return (
+                <div className="flex flex-col items-center w-full max-w-md mx-auto bg-white p-8 rounded-lg shadow-xl">
+                    <h2 className="text-3xl font-bold text-slate-800 mb-6">User Information</h2>
+                    <input
+                        type="text"
+                        name="name"
+                        placeholder="Name"
+                        className={`w-full px-4 py-3 mb-4 border rounded-md focus:outline-none focus:ring-2 ${formErrors.name ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-sky-600'}`}
+                        value={userData.name}
+                        onChange={handleInputChange}
+                    />
+                    {formErrors.name && <p className="text-red-500 text-sm -mt-3 mb-4">{formErrors.name}</p>}
+
+                    <input
+                        type="number"
+                        name="age"
+                        placeholder="Age"
+                        className={`w-full px-4 py-3 mb-4 border rounded-md focus:outline-none focus:ring-2 ${formErrors.age ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-sky-600'}`}
+                        value={userData.age}
+                        onChange={handleInputChange}
+                    />
+                    {formErrors.age && <p className="text-red-500 text-sm -mt-3 mb-4">{formErrors.age}</p>}
+
+                    <select
+                         name="gender"
+                         className={`w-full px-4 py-3 mb-4 border rounded-md focus:outline-none focus:ring-2 ${formErrors.gender ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-sky-600'}`}
+                         value={userData.gender}
+                         onChange={handleInputChange}
+                     >
+                         <option value="">Select Gender</option>
+                         <option value="Male">Male</option>
+                         <option value="Female">Female</option>
+                         <option value="Other">Other</option>
+                     </select>
+                     {formErrors.gender && <p className="text-red-500 text-sm -mt-3 mb-4">{formErrors.gender}</p>}
+
+                     <select
+                         name="diabetesType"
+                         className={`w-full px-4 py-3 mb-4 border rounded-md focus:outline-none focus:ring-2 ${formErrors.diabetesType ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-sky-600'}`}
+                         value={userData.diabetesType}
+                         onChange={handleInputChange}
+                     >
+                         <option value="">Select Diabetes Type</option>
+                         <option value="Type 1">Type 1 Diabetes</option>
+                         <option value="Type 2">Type 2 Diabetes</option>
+                         <option value="Gestational">Gestational Diabetes</option>
+                         <option value="Other">Other</option>
+                     </select>
+                     {formErrors.diabetesType && <p className="text-red-500 text-sm -mt-3 mb-4">{formErrors.diabetesType}</p>}
+
+                     <input
+                         type="number"
+                         name="duration"
+                         placeholder="Duration of Diabetes (Years)"
+                         className={`w-full px-4 py-3 mb-4 border rounded-md focus:outline-none focus:ring-2 ${formErrors.duration ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-sky-600'}`}
+                         value={userData.duration}
+                         onChange={handleInputChange}
+                     />
+                     {formErrors.duration && <p className="text-red-500 text-sm -mt-3 mb-4">{formErrors.duration}</p>}
+
+                     <input
+                         type="number"
+                         name="height"
+                         placeholder="Height (cm)"
+                         className={`w-full px-4 py-3 mb-4 border rounded-md focus:outline-none focus:ring-2 ${formErrors.height ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-sky-600'}`}
+                         value={userData.height}
+                         onChange={handleInputChange}
+                     />
+                     {formErrors.height && <p className="text-red-500 text-sm -mt-3 mb-4">{formErrors.height}</p>}
+
+                     <input
+                         type="number"
+                         name="weight"
+                         placeholder="Weight (kg)"
+                         className={`w-full px-4 py-3 mb-4 border rounded-md focus:outline-none focus:ring-2 ${formErrors.weight ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-sky-600'}`}
+                         value={userData.weight}
+                         onChange={handleInputChange}
+                     />
+                     {formErrors.weight && <p className="text-red-500 text-sm -mt-3 mb-4">{formErrors.weight}</p>}
+
+                     <textarea
+                         name="history"
+                         placeholder="Relevant Medical History (e.g., heart disease, kidney issues, allergies, other conditions)"
+                         className="w-full px-4 py-3 mb-6 border rounded-md focus:outline-none focus:ring-2 border-gray-300 focus:ring-sky-600"
+                         value={userData.history}
+                         onChange={handleInputChange}
+                         rows="3"
+                     ></textarea>
+
+                    <button
+                        className="w-full px-6 py-3 mb-4 text-lg bg-sky-600 text-white rounded-md shadow-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                        onClick={handleSubmit}
+                    >
+                        Continue to Dashboard
+                    </button>
+                    <button
+                        className="w-full px-6 py-3 text-lg bg-gray-500 text-white rounded-md shadow-lg hover:bg-gray-600 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                        onClick={() => setView('home')}
+                    >
+                        Back to Home
+                    </button>
+                </div>
+            );
+        };
+
+        // Dashboard
+        const Dashboard = ({ userData, glucoseData, setView }) => {
+             const totalGlucose = glucoseData.reduce((sum, data) => sum + data.reading, 0);
+             const avgGlucose = glucoseData.length > 0 ? (totalGlucose / glucoseData.length) : null;
+             const estimatedA1c = avgGlucose !== null ? ((avgGlucose + 46.7) / 28.7).toFixed(1) : null;
+             const bmi = (parseInt(userData.weight) / ((parseInt(userData.height) / 100) ** 2)).toFixed(1);
+
+            // Get last 7 readings for the chart, ensuring they are sorted by date for correct weekday display
+            const sortedGlucoseData = [...glucoseData].sort((a, b) => new Date(a.date) - new Date(b.date));
+            const recentGlucoseData = sortedGlucoseData.slice(-7);
+
+
+             return (
+                 <div className="flex flex-col items-center w-full bg-white p-8 rounded-lg shadow-xl container-scroll">
+                     <h2 className="text-3xl font-bold text-slate-800 mb-8">Welcome, {userData.name}!</h2>
+
+                     {/* Metric Overview */}
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mb-8">
+                         <div className="flex flex-col items-center p-4 bg-blue-50 rounded-lg shadow-md">
+                             <h4 className="text-lg font-semibold text-slate-700 mb-2">Avg Glucose ({glucoseData.length} readings)</h4>
+                             <p className="text-2xl font-bold text-sky-600">{avgGlucose !== null ? avgGlucose.toFixed(0) : 'N/A'} mg/dL</p>
+                             <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                                 {avgGlucose !== null && (
+                                      <div
+                                         className={`h-2.5 rounded-full ${getGlucoseColorClass(avgGlucose)}`}
+                                         style={{ width: `${Math.min((avgGlucose / 300) * 100, 100)}%` }}
+                                      ></div>
+                                 )}
+                             </div>
+                         </div>
+                          <div className="flex flex-col items-center p-4 bg-blue-50 rounded-lg shadow-md">
+                              <h4 className="text-lg font-semibold text-slate-700 mb-2">Estimated A1C</h4>
+                              <p className="text-2xl font-bold text-sky-600">{estimatedA1c !== null ? estimatedA1c : 'N/A'}%</p>
+                              <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                                   {estimatedA1c !== null && (
+                                       <div
+                                          className={`h-2.5 rounded-full ${getA1cColorClass(parseFloat(estimatedA1c))}`}
+                                          style={{ width: `${Math.min((parseFloat(estimatedA1c) / 15) * 100, 100)}%` }}
+                                       ></div>
+                                   )}
+                              </div>
+                          </div>
+                         <div className="flex flex-col items-center p-4 bg-blue-50 rounded-lg shadow-md">
+                             <h4 className="text-lg font-semibold text-slate-700 mb-2">Estimated BMI</h4>
+                             <p className="text-2xl font-bold text-sky-600">{bmi}</p>
+                             <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                                  <div
+                                     className={`h-2.5 rounded-full ${getBmiColorClass(parseFloat(bmi))}`}
+                                     style={{ width: `${Math.min((parseFloat(bmi) / 40) * 100, 100)}%` }}
+                                  ></div>
+                              </div>
+                         </div>
+                     </div>
+
+                     {/* Glucose Trend Chart */}
+                     <div className="w-full mb-8 bg-gray-50 p-6 rounded-lg shadow-md">
+                          <h3 className="text-xl font-semibold text-slate-700 mb-6 border-b pb-4">Recent Glucose Trend (Last 7 Readings)</h3> {/* Updated title */}
+                         <div className="relative w-full h-64">
+                             {/* Simple horizontal line for chart base */}
+                             <div className="absolute bottom-8 left-0 w-full h-px bg-gray-300"></div>
+                             {recentGlucoseData.map((data, index) => {
+                                 const barHeight = (data.reading / 250) * 80; // Scale height based on max expected reading, max 80% of container
+                                 const barLeft = (index / (recentGlucoseData.length > 1 ? recentGlucoseData.length - 1 : 1)) * 90 + 5; // Position bars with spacing
+                                  const barColor = getGlucoseColorClass(data.reading);
+                                 return (
+                                     <React.Fragment key={data.id}>
+                                         <div
+                                             className={`absolute bottom-8 w-10 ${barColor} rounded-t-md flex justify-center items-end`}
+                                             style={{ height: `${barHeight}%`, left: `${barLeft}%`, transform: 'translateX(-50%)', transition: 'height 0.5s ease-in-out' }}
+                                         >
+                                             <span className="absolute -top-6 text-sm font-bold text-slate-700">{data.reading}</span>
+                                         </div>
+                                         {/* Use weekday for label */}
+                                         <span className="absolute bottom-2 text-sm text-gray-600 text-center w-10" style={{ left: `${barLeft}%`, transform: 'translateX(-50%)' }}>{getWeekday(data.date)}</span>
+                                     </React.Fragment>
+                                 );
+                             })}
+                              {recentGlucoseData.length === 0 && (
+                                  <div className="absolute inset-0 flex items-center justify-center text-gray-500">No recent glucose data for chart. Log readings to see the trend.</div>
+                              )}
+                         </div>
+                     </div>
+
+
+                     {/* Recent Readings List */}
+                     <div className="w-full mb-8 bg-gray-50 p-6 rounded-lg shadow-md">
+                         <h3 className="text-xl font-semibold text-slate-700 mb-6 border-b pb-4">Recent Glucose Readings</h3>
+                         <div className="divide-y divide-gray-200">
+                             {/* Display last few readings without specific date/time, just by day context */}
+                             {glucoseData.slice(-5).map((reading, index, arr) => {
+                                  // Determine day context - simplify to just "Reading [Index from end]" for clarity without dates
+                                  const dayContext = `Reading ${arr.length - index}`;
+                                  return (
+                                      <div key={reading.id} className="py-4">
+                                          <p className="text-gray-700 text-base mb-1">
+                                              <strong className="text-slate-800">{dayContext}:</strong> <span className={`font-bold ${getGlucoseColorClass(reading.reading).replace('bg-', 'text-')}`}>{reading.reading} mg/dL</span>
+                                          </p>
+                                          <p className="text-gray-700 text-base">
+                                              <strong className="text-slate-800">Notes:</strong> {reading.notes || 'N/A'}
+                                          </p>
+                                      </div>
+                                  );
+                             })}
+                              {glucoseData.length === 0 && <p className="text-gray-600">No readings logged yet.</p>}
+                         </div>
+                     </div>
+
+
+                     {/* Dashboard Navigation Buttons */}
+                     <div className="flex flex-col md:flex-row md:flex-wrap justify-center gap-4 w-full max-w-2xl mx-auto">
+                         <button className="flex-1 px-6 py-3 text-lg bg-sky-600 text-white rounded-md shadow-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:-translate-y-1 min-w-[200px]" onClick={() => setView('logGlucose')}>
+                             <i className="fas fa-plus-circle mr-2"></i> Log Glucose
+                         </button>
+                         <button className="flex-1 px-6 py-3 text-lg bg-sky-600 text-white rounded-md shadow-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:-translate-y-1 min-w-[200px]" onClick={() => setView('scan')}>
+                              <i className="fas fa-eye mr-2"></i> Retina Scan
+                         </button>
+                         <button className="flex-1 px-6 py-3 text-lg bg-sky-600 text-white rounded-md shadow-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:-translate-y-1 min-w-[200px]" onClick={() => setView('consult')}>
+                              <i className="fas fa-user-md mr-2"></i> Consult a Doctor
+                         </button>
+                          <button className="flex-1 px-6 py-3 text-lg bg-sky-600 text-white rounded-md shadow-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:-translate-y-1 min-w-[200px]" onClick={() => setView('diet')}>
+                               <i className="fas fa-utensils mr-2"></i> Diet Plans
+                          </button>
+                          <button className="flex-1 px-6 py-3 text-lg bg-sky-600 text-white rounded-md shadow-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:-translate-y-1 min-w-[200px]" onClick={() => setView('faq')}>
+                               <i className="fas fa-question-circle mr-2"></i> FAQ
+                          </button>
+                         <button className="flex-1 px-6 py-3 text-lg bg-sky-600 text-white rounded-md shadow-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:-translate-y-1 min-w-[200px]" onClick={() => setView('aiConsult')}>
+                              <i className="fas fa-robot mr-2"></i> Quick AI Consultation
+                         </button>
+                          <button className="flex-1 px-6 py-3 text-lg bg-sky-600 text-white rounded-md shadow-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:-translate-y-1 min-w-[200px]" onClick={() => setView('report')}>
+                               <i className="fas fa-file-alt mr-2"></i> Generate Report
+                          </button>
+                           <button className="flex-1 px-6 py-3 text-lg bg-sky-600 text-white rounded-md shadow-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:-translate-y-1 min-w-[200px]" onClick={() => setView('aboutUs')}>
+                                <i className="fas fa-info-circle mr-2"></i> About InsuGenie
+                           </button>
+                     </div>
+
+                     <button
+                         className="mt-8 px-6 py-3 text-lg bg-gray-500 text-white rounded-md shadow-lg hover:bg-gray-600 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                         onClick={() => setView('home')}
+                     >
+                         Back to Home
+                     </button>
+                 </div>
+             );
+        };
+
+         // Log Glucose View
+         const LogGlucose = ({ setView, glucoseData, setGlucoseData }) => {
+             const [reading, setReading] = React.useState('');
+             const [date, setDate] = React.useState('');
+             const [time, setTime] = React.useState('');
+             const [notes, setNotes] = React.useState('');
+             const [error, setError] = React.useState('');
+             const [successMessage, setSuccessMessage] = React.useState('');
+
+
+             const handleLogReading = () => {
+                 if (!reading || isNaN(reading) || parseInt(reading) <= 0) {
+                     setError('Please enter a valid glucose reading.');
+                     return;
+                 }
+                  if (!date) {
+                      setError('Please select a date.');
+                      return;
+                  }
+                  if (!time) {
+                      setError('Please select a time.');
+                      return;
+                  }
+
+                 const newReading = {
+                     id: glucoseData.length + 1, // Simple unique ID
+                     date: date,
+                     time: time,
+                     reading: parseInt(reading),
+                     notes: notes.trim()
+                 };
+
+                 // Add new reading and sort by date to maintain order for chart
+                 const updatedGlucoseData = [...glucoseData, newReading].sort((a, b) => new Date(a.date) - new Date(b.date));
+                 setGlucoseData(updatedGlucoseData);
+
+                 setReading('');
+                 setDate('');
+                 setTime('');
+                 setNotes('');
+                 setError('');
+                 setSuccessMessage('Glucose reading logged successfully!'); // Set success message
+                 // Clear success message after a few seconds
+                 setTimeout(() => {
+                     setSuccessMessage('');
+                 }, 3000);
+             };
+
+             return (
+                 <div className="flex flex-col items-center w-full max-w-md mx-auto bg-white p-8 rounded-lg shadow-xl">
+                     <h2 className="text-3xl font-bold text-slate-800 mb-6">Log Glucose Reading</h2>
+                     <p className="text-lg text-gray-600 mb-6 text-center">Enter your blood glucose reading, date, time, and any relevant notes.</p>
+                     <input
+                         type="number"
+                         placeholder="Glucose Reading (mg/dL)"
+                         className={`w-full px-4 py-3 mb-4 border rounded-md focus:outline-none focus:ring-2 ${error.includes('reading') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-sky-600'}`}
+                         value={reading}
+                         onChange={(e) => { setReading(e.target.value); setError(''); }}
+                     />
+                      <input
+                          type="date"
+                          className={`w-full px-4 py-3 mb-4 border rounded-md focus:outline-none focus:ring-2 ${error.includes('date') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-sky-600'}`}
+                          value={date}
+                          onChange={(e) => { setDate(e.target.value); setError(''); }}
+                      />
+                      <input
+                          type="time"
+                          className={`w-full px-4 py-3 mb-4 border rounded-md focus:outline-none focus:ring-2 ${error.includes('time') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-sky-600'}`}
+                          value={time}
+                          onChange={(e) => { setTime(e.target.value); setError(''); }}
+                      />
+                     <textarea
+                         placeholder="Notes (e.g., Before meal, After exercise, Feeling symptoms)"
+                         className="w-full px-4 py-3 mb-6 border rounded-md focus:outline-none focus:ring-2 border-gray-300 focus:ring-sky-600"
+                         value={notes}
+                         onChange={(e) => setNotes(e.target.value)}
+                         rows="3"
+                     ></textarea>
+
+                     {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+                     {successMessage && <p className="text-green-600 text-sm mb-4">{successMessage}</p>}
+
+
+                     <button
+                         className="w-full px-6 py-3 mb-4 text-lg bg-sky-600 text-white rounded-md shadow-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                         onClick={handleLogReading}
+                     >
+                         Log Reading
+                     </button>
+                     <button
+                         className="w-full px-6 py-3 text-lg bg-gray-500 text-white rounded-md shadow-lg hover:bg-gray-600 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                         onClick={() => setView('dashboard')}
+                     >
+                         Back to Dashboard
+                     </button>
+                 </div>
+             );
+         };
+
+
+        // Retina Scan View (Simulated)
+        const RetinaScan = ({ setView }) => {
+             const [scanning, setScanning] = React.useState(false);
+             const [scanProgress, setScanProgress] = React.useState(0);
+             const [scanResult, setScanResult] = React.useState(null); // Store text result
+             const [scanComplete, setScanComplete] = React.useState(false);
+
+             const handleScan = () => {
+                 setScanning(true);
+                 setScanProgress(0);
+                 setScanResult(null); // Clear previous result
+                 setScanComplete(false);
+
+                 const interval = setInterval(() => {
+                     setScanProgress((prevProgress) => {
+                         if (prevProgress >= 100) {
+                             clearInterval(interval);
+                             setScanning(false);
+                             setScanComplete(true);
+                             // Simulate scan result - randomly pick one
+                             const results = [
+                                 "Retina scan complete. No signs of diabetic retinopathy detected.",
+                                 "Retina scan complete. Eye condition looks good.",
+                                 "Retina scan complete. Minor changes detected; consult your eye doctor for further evaluation.",
+                                 "Retina scan complete. Signs of potential diabetic retinopathy detected; urgent consultation with an ophthalmologist is recommended."
+                             ];
+                             const randomResult = results[Math.floor(Math.random() * results.length)];
+                             setScanResult(randomResult);
+                             return 100;
+                         }
+                         return prevProgress + 5; // Slower scan for visual effect
+                     });
+                 }, 150);
+             };
+
+
+             return (
+                 <div className="flex flex-col items-center w-full p-8 rounded-lg shadow-xl bg-white">
+                     <h2 className="text-3xl font-bold text-slate-800 mb-6">Retina Scan</h2>
+                     <p className="text-lg text-gray-600 mb-8 text-center max-w-md">
+                          This feature allows for early detection of diabetic retinopathy.
+                          Please align your eye with the scanner.
+                     </p>
+                     {/* Removed the visual preview box */}
+                     <div className="w-full max-w-sm bg-gray-100 p-6 rounded-lg text-center mb-8 relative overflow-hidden">
+                          {scanning ? (
+                              <div className="flex flex-col items-center">
+                                   <i className="fas fa-spinner fa-spin text-4xl text-sky-600 mb-4"></i>
+                                   <p className="text-gray-700 text-lg">Scanning...</p>
+                              </div>
+                          ) : scanComplete && scanResult ? (
+                              <div className={`text-lg font-semibold ${scanResult.includes('detected') || scanResult.includes('changes') ? 'text-orange-600' : scanResult.includes('recommended') ? 'text-red-600' : 'text-green-600'}`}>
+                                   <i className={`mr-2 ${scanResult.includes('detected') || scanResult.includes('changes') ? 'fas fa-exclamation-triangle' : scanResult.includes('recommended') ? 'fas fa-times-circle' : 'fas fa-check-circle'}`}></i>
+                                   {scanResult}
+                              </div>
+                          ) : (
+                               <div className="text-center text-gray-500">
+                                    <i className="fas fa-eye text-4xl mb-2"></i>
+                                    <p>Press 'Start Scan' to begin.</p>
+                               </div>
+                           )}
+                           {/* Progress bar below the text area */}
+                           <div className="absolute bottom-0 left-0 h-1.5 bg-sky-600 transition-all duration-500 ease-in-out" style={{ width: `${scanProgress}%` }}></div>
+                     </div>
+
+
+                     <button
+                         className="px-8 py-3 text-lg bg-sky-600 text-white rounded-md shadow-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+                         onClick={handleScan}
+                         disabled={scanning}
+                     >
+                         {scanning ? 'Scanning...' : 'Start Scan'}
+                     </button>
+                     <button
+                         className="px-8 py-3 text-lg bg-gray-500 text-white rounded-md shadow-lg hover:bg-gray-600 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                         onClick={() => setView('dashboard')}
+                     >
+                         Back to Dashboard
+                     </button>
+                 </div>
+             );
+        };
+
+
+        // Consult a Doctor View
+        const ConsultDoctor = ({ setView, doctorsData }) => {
+             const [selectedDoctor, setSelectedDoctor] = React.useState(null);
+             const [appointmentConfirmed, setAppointmentConfirmed] = React.useState(false);
+
+             const handleSelectDoctor = (doctor) => {
+                 setSelectedDoctor(doctor);
+                 setAppointmentConfirmed(false); // Reset confirmation on new selection
+             };
+
+             const handleConfirmAppointment = () => {
+                  if (selectedDoctor) {
+                     // Simulate appointment booking
+                     setAppointmentConfirmed(true);
+                     // In a real app, you would send this data to a backend
+                     console.log("Appointment confirmed with:", selectedDoctor);
+                  }
+             };
+
+             return (
+                 <div className="flex flex-col items-center w-full p-8 rounded-lg shadow-xl bg-white container-scroll">
+                     <h2 className="text-3xl font-bold text-slate-800 mb-8">Consult a Doctor</h2>
+                     <p className="text-lg text-gray-600 mb-8 text-center max-w-md">
+                          Browse our list of recommended specialists and book an appointment.
+                     </p>
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl mx-auto mb-8">
+                         {doctorsData.map(doctor => (
+                             <div
+                                 key={doctor.id}
+                                 className={`flex flex-col p-6 bg-gray-50 rounded-lg shadow-md cursor-pointer border-2 ${selectedDoctor && selectedDoctor.id === doctor.id ? 'border-sky-600 shadow-lg' : 'border-transparent hover:border-sky-300'}`}
+                                 onClick={() => handleSelectDoctor(doctor)}
+                             >
+                                 <h3 className="text-xl font-semibold text-slate-800 mb-2">{doctor.name}</h3>
+                                 <p className="text-gray-700 mb-1"><strong className="text-slate-800">Specialty:</strong> {doctor.specialty}</p>
+                                 <p className="text-gray-700 mb-1"><strong className="text-slate-800">Experience:</strong> {doctor.experience}</p>
+                                 <p className="text-gray-700 mb-1"><strong className="text-slate-800">Rating:</strong> {doctor.rating}</p>
+                                 <p className="text-gray-700"><strong className="text-slate-800">Location:</strong> {doctor.location}</p>
+                             </div>
+                         ))}
+                     </div>
+
+                     {selectedDoctor && (
+                          <div className="w-full max-w-md mx-auto bg-blue-50 p-6 rounded-lg shadow-md mb-8">
+                              <h3 className="text-xl font-bold text-slate-800 mb-4">Selected Doctor Details</h3>
+                              <p className="text-gray-700 mb-2"><strong className="text-slate-800">Name:</strong> {selectedDoctor.name}</p>
+                              <p className="text-gray-700 mb-2"><strong className="text-slate-800">Specialty:</strong> {selectedDoctor.specialty}</p>
+                              <p className="text-gray-700 mb-2"><strong className="text-slate-800">Experience:</strong> {selectedDoctor.experience}</p>
+                              <p className="text-gray-700 mb-2"><strong className="text-slate-800">Rating:</strong> {selectedDoctor.rating}</p>
+                              <p className="text-gray-700 mb-2"><strong className="text-slate-800">Location:</strong> {selectedDoctor.location}</p>
+                              <p className="text-gray-700 mb-2"><strong className="text-slate-800">Phone:</strong> {selectedDoctor.phone}</p>
+                              <p className="text-gray-700 mb-4"><strong className="text-slate-800">Email:</strong> {selectedDoctor.email}</p>
+                              <button
+                                  className="w-full px-6 py-3 text-lg bg-green-600 text-white rounded-md shadow-lg hover:bg-green-700 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                                  onClick={handleConfirmAppointment}
+                              >
+                                   <i className="fas fa-calendar-check mr-2"></i> Confirm Appointment
+                              </button>
+                          </div>
+                     )}
+
+                     {appointmentConfirmed && selectedDoctor && (
+                          <div className="w-full max-w-md mx-auto bg-green-100 p-6 rounded-lg shadow-md text-center">
+                              <h2 className="text-2xl font-bold text-green-700 mb-3"><i className="fas fa-check-circle mr-2"></i> Appointment Confirmed!</h2>
+                              <p className="text-green-800 text-lg">Your appointment with <strong className="font-semibold">{selectedDoctor.name}</strong> has been successfully booked.</p>
+                              {/* Removed simulation line */}
+                          </div>
+                     )}
+
+
+                     <button
+                         className="mt-8 px-8 py-3 text-lg bg-gray-500 text-white rounded-md shadow-lg hover:bg-gray-600 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                         onClick={() => setView('dashboard')}
+                     >
+                         Back to Dashboard
+                     </button>
+                 </div>
+             );
+        };
+
+
+        // Diet Plans View
+        const DietPlans = ({ setView, dietPlanData }) => {
+             const [dietGenerated, setDietGenerated] = React.useState(false);
+
+             const handleGenerateDiet = () => {
+                  setDietGenerated(true);
+             };
+
+             return (
+                 <div className="flex flex-col items-center w-full p-8 rounded-lg shadow-xl bg-white container-scroll">
+                     <h2 className="text-3xl font-bold text-slate-800 mb-8">Personalized Diet Plan</h2>
+                     <p className="text-lg text-gray-600 mb-8 text-center max-w-md">
+                         Generate a sample diet plan based on general diabetes recommendations.
+                         Remember this is a sample; a registered dietitian can create a plan tailored to your specific needs.
+                     </p>
+                     <button
+                          className="px-8 py-3 text-lg bg-sky-600 text-white rounded-md shadow-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:-translate-y-1 mb-8"
+                          onClick={handleGenerateDiet}
+                     >
+                         <i className="fas fa-utensils mr-2"></i> Generate Sample Diet Plan
+                     </button>
+
+                     {dietGenerated && (
+                          <div className="w-full max-w-3xl mx-auto bg-gray-50 p-6 rounded-lg shadow-md">
+                              <h3 className="text-xl font-bold text-slate-800 mb-4 border-b pb-3">{dietPlanData.title}</h3>
+                              <p className="text-gray-700 mb-6 text-base">{dietPlanData.description}</p>
+
+                              <table className="diet-table">
+                                  <thead>
+                                      <tr>
+                                          <th>Meal</th>
+                                          <th>Recommended Foods</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      {dietPlanData.meals.map((meal, index) => (
+                                          <tr key={index}>
+                                              <td><strong>{meal.name}</strong></td>
+                                              <td>
+                                                  <ul className="list-disc list-inside">
+                                                      {meal.items.map((item, itemIndex) => (
+                                                          <li key={itemIndex} className="mb-1">{item}</li>
+                                                      ))}
+                                                  </ul>
+                                              </td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                              </table>
+
+                              <div className="mt-8">
+                                  <h4 className="text-lg font-semibold text-slate-700 mb-3 border-b pb-2">Important Notes</h4>
+                                  <ul className="list-disc list-inside text-gray-700">
+                                      {dietPlanData.notes.map((note, index) => (
+                                          <li key={index} className="mb-1">{note}</li>
+                                      ))}
+                                  </ul>
+                              </div>
+                          </div>
+                     )}
+
+                     <button
+                         className="mt-8 px-8 py-3 text-lg bg-gray-500 text-white rounded-md shadow-lg hover:bg-gray-600 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                         onClick={() => setView('dashboard')}
+                     >
+                         Back to Dashboard
+                     </button>
+                 </div>
+             );
+        };
+
+
+        // FAQ View
+        const FAQ = ({ setView, faqsData }) => {
+             return (
+                 <div className="flex flex-col items-center w-full p-8 rounded-lg shadow-xl bg-white container-scroll">
+                     <h2 className="text-3xl font-bold text-slate-800 mb-8">Frequently Asked Questions</h2>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl mx-auto">
+                         {faqsData.map(faq => (
+                             <div key={faq.id} className="bg-gray-50 p-6 rounded-lg shadow-md">
+                                 <h3 className="text-xl font-semibold text-slate-800 mb-3">{faq.question}</h3>
+                                 <p className="text-gray-700 text-base leading-relaxed">{faq.answer}</p>
+                             </div>
+                         ))}
+                     </div>
+                     <button
+                         className="mt-8 px-8 py-3 text-lg bg-gray-500 text-white rounded-md shadow-lg hover:bg-gray-600 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                         onClick={() => setView('dashboard')}
+                     >
+                         Back to Dashboard
+                     </button>
+                 </div>
+             );
+        };
+
+        // AI Consultation View
+        const AIConsultation = ({ setView, userData, glucoseData }) => {
+             const [aiQuestion, setAiQuestion] = React.useState('');
+             const [aiResponse, setAiResponse] = React.useState('');
+             const [loading, setLoading] = React.useState(false);
+
+             const handleAskAI = async () => {
+                  if (aiQuestion.trim()) {
+                      setLoading(true);
+                      setAiResponse(''); // Clear previous response
+                      // Simulate AI processing time
+                      await new Promise(resolve => setTimeout(resolve, 1000));
+                      const response = getAIResponse(aiQuestion, userData, glucoseData);
+                      setAiResponse(response);
+                      setLoading(false);
+                  } else {
+                     setAiResponse("Please enter a question to get AI assistance.");
+                  }
+             };
+
+             return (
+                 <div className="flex flex-col items-center w-full p-8 rounded-lg shadow-xl bg-white container-scroll">
+                     <h2 className="text-3xl font-bold text-slate-800 mb-6">Quick AI Consultation</h2>
+                     <p className="text-lg text-gray-600 mb-8 text-center max-w-2xl">
+                         Ask me anything about diabetes management. I can provide general information based on your profile and logged data.
+                         (Profile: {userData.name || 'N/A'}, Age: {userData.age || 'N/A'}, Type: {userData.diabetesType || 'N/A'}, History: {userData.history || 'None'}).
+                         <br/> <strong className="text-red-600">Remember: I am an AI and cannot provide medical advice. Always consult a healthcare professional.</strong>
+                     </p>
+                     <div className="w-full max-w-2xl mb-6">
+                         <input
+                             type="text"
+                             placeholder="Type your question here..."
+                             className="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 border-gray-300 focus:ring-sky-600 text-lg"
+                             value={aiQuestion}
+                             onChange={(e) => setAiQuestion(e.target.value)}
+                             onKeyPress={(e) => { if (e.key === 'Enter') handleAskAI(); }}
+                             disabled={loading}
+                         />
+                     </div>
+                     <button
+                         className="px-8 py-3 text-lg bg-sky-600 text-white rounded-md shadow-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                         onClick={handleAskAI}
+                         disabled={loading}
+                     >
+                         {loading ? 'Thinking...' : 'Get AI Response'}
+                     </button>
+
+                     {aiResponse && (
+                          <div className="w-full max-w-2xl mt-8 bg-gray-50 p-6 rounded-lg shadow-md">
+                              <h3 className="text-xl font-semibold text-slate-800 mb-4 border-b pb-3">AI Response</h3>
+                              <p className="text-gray-700 text-base leading-relaxed">{aiResponse}</p>
+                          </div>
+                     )}
+
+                     <button
+                         className="mt-8 px-8 py-3 text-lg bg-gray-500 text-white rounded-md shadow-lg hover:bg-gray-600 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                         onClick={() => setView('dashboard')}
+                     >
+                         Back to Dashboard
+                     </button>
+                 </div>
+             );
+        };
+
+        // About Us View
+        const AboutUs = ({ setView }) => {
+             return (
+                 <div className="flex flex-col items-center w-full p-8 rounded-lg shadow-xl bg-white container-scroll">
+                     <h2 className="text-3xl font-bold text-slate-800 mb-6">About InsuGenie</h2>
+                     <div className="text-lg text-gray-700 leading-relaxed max-w-3xl mx-auto">
+                         <p className="mb-4">
+                             Welcome to InsuGenie, your AI-powered solution designed to support individuals in managing diabetes effectively. Our goal is to provide a convenient and informative platform to help you stay on track with your health journey.
+                         </p>
+                         <h3 className="text-xl font-semibold text-slate-800 mb-3 mt-6 border-b pb-2">Our Goal</h3>
+                         <p className="mb-4">
+                             Our primary goal is to empower you with tools and information to better understand and manage your diabetes. We aim to simplify daily tracking, provide quick access to relevant information, and offer insights based on your data to support informed decisions in consultation with your healthcare provider.
+                         </p>
+                         <h3 className="text-xl font-semibold text-slate-800 mb-3 mt-6 border-b pb-2">Features</h3>
+                         <ul className="list-disc list-inside mb-4">
+                             <li className="mb-2"><strong>Glucose Logging:</strong> Easily record your blood sugar readings with date, time, and notes.</li>
+                             <li className="mb-2"><strong>Trend Analysis:</strong> Visualize your recent glucose trends to identify patterns.</li>
+                             <li className="mb-2"><strong>AI Consultation:</strong> Get quick answers to your diabetes-related questions based on general knowledge and your profile.</li>
+                             <li className="mb-2"><strong>Dietary Guidance:</strong> Access sample diet plans and nutritional information.</li>
+                             <li className="mb-2"><strong>Doctor Consultation:</strong> Find and connect with healthcare professionals.</li>
+                             <li className="mb-2"><strong>FAQ:</strong> Find answers to common questions about diabetes.</li>
+                             <li className="mb-2"><strong>Report Generation:</strong> Create comprehensive reports summarizing your data for sharing with your doctor.</li>
+                             <li className="mb-2"><strong>Simulated Retina Scan:</strong> A feature to simulate screening for diabetic retinopathy.</li>
+                         </ul>
+                         <p>
+                             InsuGenie is a supplementary tool and does not replace professional medical advice, diagnosis, or treatment. Always consult with your doctor or other qualified healthcare provider regarding any questions you may have about a medical condition or treatment.
+                         </p>
+                     </div>
+                     <button
+                         className="mt-8 px-8 py-3 text-lg bg-gray-500 text-white rounded-md shadow-lg hover:bg-gray-600 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                         onClick={() => setView('dashboard')}
+                     >
+                         Back to Dashboard
+                     </button>
+                 </div>
+             );
+        };
+
+
+        // Report View
+        const Report = ({ setView, userData, glucoseData }) => {
+
+             const generateReportContent = () => {
+                 const totalGlucose = glucoseData.reduce((sum, data) => sum + data.reading, 0);
+                 const avgGlucose = glucoseData.length > 0 ? (totalGlucose / glucoseData.length) : null;
+                 const estimatedA1c = avgGlucose !== null ? ((avgGlucose + 46.7) / 28.7).toFixed(1) : null;
+                 const bmi = (parseInt(userData.weight) / ((parseInt(userData.height) / 100) ** 2)).toFixed(1);
+
+                 // Simulate a fixed retina scan result for the report
+                 const simulatedRetinaScanResult = "Simulated Retina Scan Result: No signs of diabetic retinopathy detected."; // Example fixed result
+
+
+                 return `
+                     <div class="report-container-pdf">
+                         <div class="report-header-pdf">
+                             <div class="logo-placeholder-pdf">🩺</div> <div class="brand-name-pdf">InsuGenie</div>
+                         </div>
+                         <h2 class="report-title-pdf">Comprehensive Diabetes Management Report</h2>
+
+                         <div class="report-details-pdf">
+                             <h4>User Information</h4>
+                             <p><strong>Name:</strong> ${userData.name || 'N/A'}</p>
+                             <p><strong>Age:</strong> ${userData.age || 'N/A'}</p>
+                             <p><strong>Gender:</strong> ${userData.gender || 'N/A'}</p>
+                             <p><strong>Diabetes Type:</strong> ${userData.diabetesType || 'N/A'}</p>
+                             <p><strong>Duration of Diabetes:</strong> ${userData.duration ? userData.duration + ' years' : 'N/A'}</p>
+                             <p><strong>Height:</strong> ${userData.height ? userData.height + ' cm' : 'N/A'}</p>
+                             <p><strong>Weight:</strong> ${userData.weight ? userData.weight + ' kg' : 'N/A'}</p>
+                             <p><strong>Medical History:</strong> ${userData.history || 'None provided'}</p>
+                             <p><strong>Estimated BMI:</strong> ${bmi}</p>
+
+                             <h4>Glucose Trends and Metrics</h4>
+                             ${avgGlucose !== null ? `
+                                 <p><strong>Average Glucose (${glucoseData.length} readings):</strong> ${avgGlucose.toFixed(0)} mg/dL</p>
+                                 <p><strong>Estimated A1C:</strong> ${estimatedA1c}%</p>
+                                 <p><strong>Recent Readings Summary:</strong></p>
+                                 <ul>
+                                     ${glucoseData.slice(-7).map(d => `<li>${getWeekday(d.date)}: <strong>${d.reading} mg/dL</strong> (${d.notes || 'No notes'})</li>`).join('')}
+                                 </ul>
+                                 <p><em>Analysis:</em> ${avgGlucose > 180 ? 'Your average glucose is significantly elevated, requiring urgent review of your management plan.' : avgGlucose > 140 ? 'Your average glucose is elevated. Consistent levels above target need attention.' : avgGlucose < 80 ? 'Your average glucose might be low. Monitor for hypoglycemia.' : 'Your average glucose is within a good range. Consistent effort is key.'}</p>
+                             ` : '<p>No glucose data available to generate trend analysis.</p>'}
+
+                             <h4>Simulated Retina Scan Result</h4>
+                             <p>${simulatedRetinaScanResult}</p>
+                             <p><em>Note: This is a simulated result for demonstration purposes only. A real retina scan requires specialized equipment and interpretation by an eye care professional.</em></p>
+
+
+                             <h4>General Recommendations</h4>
+                             <ul>
+                                 <li><strong>Diet:</strong> Adhere to a balanced diet focusing on whole foods, controlled carbohydrate intake, and healthy fats. Consider a personalized meal plan from a dietitian.</li>
+                                 <li><strong>Exercise:</strong> Engage in regular physical activity (aerobic and strength training) as recommended by your healthcare provider, considering your health status and history.</li>
+                                 <li><strong>Monitoring:</strong> Continue diligent blood sugar monitoring. Analyze patterns in your readings to understand the impact of food, activity, and medication.</li>
+                                 <li><strong>Medication Adherence:</strong> Take all prescribed medications exactly as directed. Report any side effects or concerns to your doctor.</li>
+                                 <li><strong>Preventative Care:</strong> Attend all scheduled appointments and screenings (eye exams, foot exams, kidney tests, etc.) to detect and manage potential complications early.</li>
+                                 <li><strong>Lifestyle Factors:</strong> Manage stress, ensure adequate sleep, and avoid smoking to support overall diabetes control.</li>
+                             </ul>
+                             <p><em>Disclaimer: This report is generated based on the data provided in the application and general diabetes management guidelines. It is intended for informational purposes only and should not be considered medical advice. Always consult with a qualified healthcare professional for diagnosis, treatment, and personalized recommendations.</em></p>
+                         </div>
+                          <p class="download-note-pdf">Report generated by InsuGenie.</p>
+                     </div>
+                 `;
+             };
+
+
+             const handleDownloadReport = () => {
+                 const reportContent = generateReportContent();
+                 const container = document.createElement('div');
+                 container.innerHTML = reportContent;
+
+                 html2pdf(container, {
+                     margin: 10, // Margin in mm
+                     filename: `InsuGenie_Diabetes_Report_${userData.name.replace(/\s+/g, '_') || 'User'}_${new Date().toISOString().slice(0,10)}.pdf`,
+                     image: { type: 'jpeg', quality: 0.98 },
+                     html2canvas: { scale: 2, logging: true, dpi: 192, letterRendering: true },
+                     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                 });
+             };
+
+
+             return (
+                 <div className="flex flex-col items-center w-full p-8 rounded-lg shadow-xl bg-white container-scroll">
+                     <div className="w-full max-w-4xl mx-auto">
+                         {/* Render report content directly */}
+                         <div dangerouslySetInnerHTML={{ __html: generateReportContent() }} />
+                     </div>
+
+                     <button
+                         className="mt-8 px-8 py-3 text-lg bg-sky-600 text-white rounded-md shadow-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                         onClick={handleDownloadReport}
+                     >
+                         <i className="fas fa-download mr-2"></i> Download Report as PDF
+                     </button>
+                      <p className="text-gray-600 text-sm mt-2 download-note">Alternatively, you can use your browser's print function (Ctrl+P or Cmd+P) and select "Save as PDF".</p>
+
+                     <button
+                         className="mt-4 px-8 py-3 text-lg bg-gray-500 text-white rounded-md shadow-lg hover:bg-gray-600 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                         onClick={() => setView('dashboard')}
+                     >
+                         Back to Dashboard
+                     </button>
+                 </div>
+             );
+        };
+
+
+        // --- Main App Component ---
+        function App() {
+            const [view, setView] = React.useState('home');
+            const [userData, setUserData] = React.useState({
+                name: '',
+                age: '',
+                gender: '',
+                diabetesType: '',
+                duration: '',
+                height: '',
+                weight: '',
+                history: '',
+            });
+            const [formErrors, setFormErrors] = React.useState({});
+             const [glucoseData, setGlucoseData] = React.useState(sampleGlucoseData); // Use sample data initially
+
+
+             const validateForm = () => {
+                 const errors = {};
+                 if (!userData.name.trim()) errors.name = 'Name is required.';
+                 if (!userData.age || isNaN(userData.age) || parseInt(userData.age) <= 0) errors.age = 'Valid Age is required.';
+                 if (!userData.gender) errors.gender = 'Gender is required.';
+                 if (!userData.diabetesType) errors.diabetesType = 'Diabetes Type is required.';
+                 if (!userData.duration || isNaN(userData.duration) || parseInt(userData.duration) < 0) errors.duration = 'Valid Duration (years) is required.';
+                 if (!userData.height || isNaN(userData.height) || parseInt(userData.height) <= 0) errors.height = 'Valid Height (cm) is required.';
+                 if (!userData.weight || isNaN(userData.weight) || parseInt(userData.weight) <= 0) errors.weight = 'Valid Weight (kg) is required.';
+                 // history is optional
+                 setFormErrors(errors);
+                 return Object.keys(errors).length === 0;
+             };
+
+
+            const renderView = () => {
+                switch (view) {
+                    case 'home':
+                        return <Home setView={setView} />;
+                    case 'form':
+                        return <UserForm
+                                 userData={userData}
+                                 setUserData={setUserData}
+                                 setView={setView}
+                                 formErrors={formErrors}
+                                 validateForm={validateForm}
+                                 setFormErrors={setFormErrors}
+                               />;
+                    case 'dashboard':
+                        return <Dashboard userData={userData} glucoseData={glucoseData} setView={setView} />;
+                    case 'logGlucose':
+                         return <LogGlucose setView={setView} glucoseData={glucoseData} setGlucoseData={setGlucoseData} />;
+                    case 'scan':
+                        return <RetinaScan setView={setView} />;
+                    case 'consult':
+                         return <ConsultDoctor setView={setView} doctorsData={sampleDoctorsData} />;
+                    case 'diet':
+                         return <DietPlans setView={setView} dietPlanData={sampleDietPlan} />;
+                    case 'faq':
+                         return <FAQ setView={setView} faqsData={sampleFaqs} />;
+                    case 'aiConsult':
+                         return <AIConsultation setView={setView} userData={userData} glucoseData={glucoseData} />;
+                    case 'report':
+                         return <Report setView={setView} userData={userData} glucoseData={glucoseData} />;
+                    case 'aboutUs':
+                         return <AboutUs setView={setView} />;
+                    default:
+                        return <Home setView={setView} />; // Fallback to home
+                }
+            };
+
+            return (
+                <div className="container mx-auto p-4 bg-white rounded-lg shadow-xl max-w-4xl">
+                    {renderView()}
+                    <footer className="mt-8 pt-4 border-t border-gray-200 text-center text-gray-500 text-sm">
+                         &copy; 2025 InsuGenie. All rights reserved.
+                    </footer>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
